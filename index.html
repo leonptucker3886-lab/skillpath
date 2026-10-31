@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>SkillPath — learning path tracker</title>
+<meta name="description" content="Build a learning path, check off steps and track your progress. Data stays in your browser.">
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#FAFAF9;color:#18181B}
+header{background:#2A78D6;color:#fff;padding:16px 20px}header h1{margin:0;font-size:22px}header p{margin:4px 0 0;opacity:.9;font-size:14px}
+main{max-width:760px;margin:0 auto;padding:16px}
+.card{background:#fff;border:1px solid #DEDDD8;border-radius:10px;padding:14px;margin-bottom:14px}
+input,textarea,button{font:inherit;padding:8px;border-radius:6px;border:1px solid #ccc}
+button{background:#2A78D6;color:#fff;border:0;cursor:pointer}button.ghost{background:#eee;color:#18181B}button.del{background:#c0392b}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.row input{flex:1;min-width:140px}
+.bar{height:10px;background:#eee;border-radius:5px;overflow:hidden}.bar>div{height:100%;background:#008300}
+li{margin:6px 0;list-style:none}li.done span{text-decoration:line-through;color:#888}ul{padding:0}
+.small{font-size:13px;color:#555}
+</style></head><body>
+<header><h1>SkillPath <small style="font-size:12px">v0.1 beta</small></h1><p>Build a learning path, check off steps, see your progress. Saved in this browser only.</p></header>
+<main>
+<div class="card"><b>New path</b><div class="row"><input id="pname" placeholder="Path name, e.g. Learn JavaScript"><button onclick="addPath()">Add path</button></div>
+<div class="row"><button class="ghost" onclick="exportData()">Export JSON</button><label class="ghost" style="padding:8px;background:#eee;border-radius:6px;cursor:pointer">Import JSON<input type="file" accept=".json" onchange="importData(this)" hidden></label></div></div>
+<div id="paths"></div>
+</main>
+<script>
+const KEY='skillpath.v1';let S=JSON.parse(localStorage.getItem(KEY)||'{"paths":[]}');
+const save=()=>{localStorage.setItem(KEY,JSON.stringify(S));render()};
+const id=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function addPath(){const n=pname.value.trim();if(!n)return;S.paths.push({id:id(),name:n,steps:[],created:Date.now()});pname.value='';save()}
+function delPath(p){if(confirm('Delete this path?')){S.paths=S.paths.filter(x=>x.id!==p);save()}}
+function P(p){return S.paths.find(x=>x.id===p)}
+function addStep(p){const i=document.getElementById('s'+p),t=i.value.trim();if(!t)return;P(p).steps.push({id:id(),title:t,done:false});save()}
+function toggle(p,s){const st=P(p).steps.find(x=>x.id===s);st.done=!st.done;st.doneAt=st.done?new Date().toISOString().slice(0,10):null;save()}
+function delStep(p,s){const x=P(p);x.steps=x.steps.filter(y=>y.id!==s);save()}
+function move(p,s,d){const a=P(p).steps,i=a.findIndex(x=>x.id===s),j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save()}
+function render(){const el=document.getElementById('paths');if(!S.paths.length){el.innerHTML='<p class="small">No paths yet. Add one above.</p>';return}
+el.innerHTML=S.paths.map(p=>{const d=p.steps.filter(s=>s.done).length,t=p.steps.length,pc=t?Math.round(d/t*100):0,next=p.steps.find(s=>!s.done);
+return `<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(p.name)}</b><button class="del" onclick="delPath('${p.id}')">Delete</button></div>
+<div class="bar"><div style="width:${pc}%"></div></div><p class="small">${d} of ${t} steps done (${pc}%)${next?' · Next: '+esc(next.title):t?' · Path complete 🎉':''}</p>
+<ul>${p.steps.map(s=>`<li class="${s.done?'done':''}"><input type="checkbox" ${s.done?'checked':''} onchange="toggle('${p.id}','${s.id}')"> <span>${esc(s.title)}</span> ${s.doneAt?'<span class="small">('+s.doneAt+')</span>':''}
+<button class="ghost" onclick="move('${p.id}','${s.id}',-1)">↑</button><button class="ghost" onclick="move('${p.id}','${s.id}',1)">↓</button><button class="ghost" onclick="delStep('${p.id}','${s.id}')">✕</button></li>`).join('')}</ul>
+<div class="row"><input id="s${p.id}" placeholder="Add a step" onkeydown="if(event.key==='Enter')addStep('${p.id}')"><button onclick="addStep('${p.id}')">Add step</button></div></div>`}).join('')}
+function exportData(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));a.download='skillpath.json';a.click()}
+function importData(i){const f=i.files[0];if(!f)return;f.text().then(t=>{const d=JSON.parse(t);if(!Array.isArray(d.paths))return alert('Invalid file');S=d;save()})}
+render();
+</script></body></html>
